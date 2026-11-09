@@ -37,23 +37,69 @@
     check: "M9 2h6v2h3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3zm-1 9.2L9.4 9.8l1.6 1.6 3.6-3.6L16 9.2l-5 5zM8 18h8v-1.6H8z",
     more: "M5 10.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zm7 0a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zm7 0a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z",
   };
-  // 선생님 빨간펜 표시: 정답은 번호를 두르는 찌그러진 동그라미 한 획, 오답은 번호 위로 긋는 빠른 사선 두 줄.
+  // 선생님 빨간 색연필 표시: 정답은 번호를 두 바퀴쯤 휘감는 동그라미(끝이 바깥으로 삐져나옴), 오답은 번호를 지나는 길고 시원한 한 획.
   // 장식이라 화면 낭독기에서는 읽지 않고(aria-hidden), 정답/오답 글자와 카드 색은 그대로 둡니다.
-  function penMark(correct) {
+  // 획은 점으로 손글씨처럼 흔들어 만들고(같은 seed 면 늘 같은 모양), 굵기는 겹친 3개 층으로 "시작 굵고 끝 가늘게" 보이게 합니다.
+  function rng(seed) {  // mulberry32: 같은 seed 면 같은 난수열
+    let a = (seed * 2654435761) >>> 0;
+    return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  // 두 바퀴쯤 감는 동그라미의 중심선 점들(상자 한 변 w, 바깥으로 pad 만큼 번짐 허용)
+  function circlePoints(w, pad, rand) {
+    const cx = w / 2 + (rand() - 0.5) * 2, cy = w / 2 + (rand() - 0.5) * 2;
+    const R = w / 2 + pad * 0.55, N = 64, sweep = Math.PI * 4.15, start = -2.3 + (rand() - 0.5) * 0.5;
+    const ph = rand() * 6.28, out = [];
+    for (let i = 0; i <= N; i++) {
+      const u = i / N, th = start - sweep * u;             // 반시계 방향으로 감기
+      let r = R * (0.9 + 0.16 * u + 0.045 * Math.sin(2.1 * th + ph) + 0.03 * Math.sin(5 * th));  // 둘째 바퀴가 조금 더 큼
+      if (u > 0.9) r += R * 0.55 * Math.pow((u - 0.9) / 0.1, 2);                                // 끝이 바깥으로 삐져나옴
+      out.push([cx + r * Math.cos(th) * 1.06, cy + r * Math.sin(th) * 0.94]);
+    }
+    return out;
+  }
+  // 왼쪽 아래 → 오른쪽 위로 번호보다 길게 긋는 한 획
+  function slashPoints(w, pad, rand) {
+    const x0 = -pad * 0.9 + (rand() - 0.5) * 2, y0 = w + pad * 0.95 + (rand() - 0.5) * 2;
+    const x1 = w + pad * 0.95 + (rand() - 0.5) * 2, y1 = -pad * 0.95 + (rand() - 0.5) * 2, N = 30, bow = (rand() - 0.5) * 4;
+    const out = [];
+    for (let i = 0; i <= N; i++) {
+      const u = i / N, wob = Math.sin(u * 9 + rand()) * 0.5;
+      out.push([x0 + (x1 - x0) * u + bow * Math.sin(u * Math.PI) * 0.6 + wob, y0 + (y1 - y0) * u - bow * Math.sin(u * Math.PI) * 0.6 + wob * 0.6]);
+    }
+    return out;
+  }
+  function smoothPath(pts) {  // 점들을 이어 부드러운 곡선(2차 베지어) 경로로
+    let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
+      d += `Q${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
+    }
+    const last = pts[pts.length - 1];
+    return d + `L${last[0].toFixed(1)} ${last[1].toFixed(1)}`;
+  }
+  // kind: "ok"(동그라미) | "bad"(사선). w: 표시할 번호 상자의 한 변(px), pad: 상자 밖으로 번지는 여유(px)
+  function penMark(kind, w, pad, seed) {
+    const rand = rng(seed + 1);
     const svg = document.createElementNS(SVG_NS, "svg");
-    svg.setAttribute("viewBox", "0 0 36 36");
-    svg.setAttribute("class", "pen " + (correct ? "pen-ok" : "pen-bad"));
+    svg.setAttribute("viewBox", `${-pad} ${-pad} ${w + pad * 2} ${w + pad * 2}`);
+    svg.setAttribute("class", "pen " + (kind === "ok" ? "pen-ok" : "pen-bad"));
     svg.setAttribute("aria-hidden", "true");
     svg.setAttribute("focusable", "false");
     const g = document.createElementNS(SVG_NS, "g");
-    g.setAttribute("filter", "url(#redpen-rough)");  // 살짝 번진 펜 질감(index.html 에 정의)
-    const strokes = correct
-      ? ["M21 3.6C11 2.6 3.6 10.6 4.2 20C4.8 29.4 14 34 23.4 32.2C31.6 30.6 34.4 21 31.4 13C28.8 6.2 20.6 2.8 12.6 5.4"]
-      : ["M6.4 31C14.6 22.4 22.6 14.2 30.2 5.2", "M12.8 33.4C21 24.6 27.2 18 33.4 11.2"];
-    for (const d of strokes) {
+    g.setAttribute("filter", "url(#redpen-rough)");  // 색연필 결·거친 가장자리(index.html 에 정의)
+    const pts = kind === "ok" ? circlePoints(w, pad, rand) : slashPoints(w, pad, rand);
+    // [시작, 끝, 굵기(px), 그리기 시작 지연(초), 그리는 시간(초)] — 굵은 층에서 가는 층으로 이어집니다.
+    const layers = kind === "ok"
+      ? [[0, 0.56, 3.8, 0, 0.36], [0.46, 0.88, 3.2, 0.3, 0.3], [0.78, 1, 2.3, 0.52, 0.14]]
+      : [[0, 0.5, 5, 0, 0.26], [0.42, 0.8, 4, 0.22, 0.2], [0.72, 1, 2.6, 0.4, 0.16]];
+    for (const [from, to, width, delay, dur] of layers) {
+      const a = Math.floor(from * (pts.length - 1)), b = Math.max(a + 2, Math.ceil(to * (pts.length - 1)) + 1);
       const path = document.createElementNS(SVG_NS, "path");
-      path.setAttribute("d", d);
+      path.setAttribute("d", smoothPath(pts.slice(a, b)));
       path.setAttribute("pathLength", "1");  // 긋는 애니메이션(stroke-dashoffset)을 길이와 상관없이 쓰기 위해
+      path.style.strokeWidth = String(width);
+      path.style.setProperty("--delay", delay + "s");
+      path.style.setProperty("--dur", dur + "s");
       g.appendChild(path);
     }
     svg.appendChild(g);
@@ -678,7 +724,8 @@
     }
     data.questions.forEach((q, i) => {
       const r = done ? qz.result.results[i] : null;
-      const mark = r ? penMark(r.selected === r.answer) : null;  // 채점 뒤에만 빨간펜 표시
+      const right = !!r && r.selected === r.answer;
+      const mark = r ? penMark(right ? "ok" : "bad", 36, 14, i * 7 + 3) : null;  // 채점 뒤에만 빨간펜 표시
       const card = h("div", { class: "card q" }, h("h3", { class: "qhead" },
         h("span", { class: "qno" }, h("span", { class: "qdigit", text: String(i + 1) }), mark),
         h("span", { class: "qtext", text: q.question })));
@@ -687,7 +734,8 @@
         let cls = "choice";
         if (r) { if (n === r.answer) cls += " right"; else if (n === r.selected) cls += " wrong"; }
         card.appendChild(h("button", { class: cls, type: "button", disabled: done || qz.grading, "aria-pressed": qz.picked[i] === n ? "true" : "false",
-          onclick: () => { qz.picked[i] = n; render(); } }, h("span", { class: "num", text: String(n) }), h("span", { text: c })));
+          onclick: () => { qz.picked[i] = n; render(); } },
+          h("span", { class: "num" }, h("span", { class: "numdigit", text: String(n) }), right && n === r.answer ? penMark("ok", 24, 9, i * 7 + n) : null), h("span", { text: c })));
       });
       if (r) card.appendChild(h("p", { class: "explain", text: `${r.selected === r.answer ? "정답" : (r.selected ? `정답은 ${r.answer}번` : `안 풀었어요. 정답은 ${r.answer}번`)} · ${r.explanation} (${r.page}쪽)` }));
       wrap.append(card);

@@ -17,9 +17,12 @@
 <body>
 <div class="demo-banner" id="demo-banner" role="note">체험판 — 미리 준비한 예시로 화면 흐름만 보여 드려요. 실제 AI는 쓰지 않아요.</div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <filter id="redpen-rough" filterUnits="userSpaceOnUse" x="-6" y="-6" width="48" height="48">
-    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" result="n"/>
-    <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6" xChannelSelector="R" yChannelSelector="G"/>
+  <filter id="redpen-rough" filterUnits="userSpaceOnUse" x="-60" y="-60" width="200" height="200" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" seed="4" result="edge"/>
+    <feDisplacementMap in="SourceGraphic" in2="edge" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+    <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="9" result="grain"/>
+    <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  2.6 0 0 0 -0.42" result="paper"/>
+    <feComposite in="rough" in2="paper" operator="in"/>
   </filter>
 </svg>
 <div id="app">
