@@ -1,0 +1,12 @@
+/* 체험판 전용 스타일: 항상 보이는 안내 배너와 '예시' 표시. 앱 화면 스타일(app.css)은 그대로 씁니다. */
+:root { --demo-banner-h: 56px; }
+.demo-banner { position: sticky; top: 0; z-index: 100; padding: 8px 16px; padding-top: calc(8px + env(safe-area-inset-top));
+  background: #FFF4CC; color: #4A3800; border-bottom: 1px solid #E8C65A; font-size: 14px; font-weight: 700; line-height: 1.4; text-align: center; }
+@media (prefers-color-scheme: dark) { .demo-banner { background: #4A3800; color: #FFF4CC; border-bottom-color: #8A6D12; } }
+.appbar { top: var(--demo-banner-h); }
+.sheet { top: var(--demo-banner-h); }
+.sheet .appbar { top: 0; }
+.demo-tag { display: inline-block; margin: 0 6px; padding: 1px 8px; border-radius: 999px; background: #FFF4CC; color: #4A3800; border: 1px solid #E8C65A;
+  font-size: 12px; font-weight: 700; line-height: 1.5; vertical-align: middle; }
+@media (prefers-color-scheme: dark) { .demo-tag { background: #4A3800; color: #FFF4CC; border-color: #8A6D12; } }
+.score .demo-tag { font-size: 12px; }
