@@ -10,3 +10,14 @@
   font-size: 12px; font-weight: 700; line-height: 1.5; vertical-align: middle; }
 @media (prefers-color-scheme: dark) { .demo-tag { background: #4A3800; color: #FFF4CC; border-color: #8A6D12; } }
 .score .demo-tag { font-size: 12px; }
+.demo-tag.real { background: #DCEBFF; color: #12468F; border-color: #8DB4F0; }
+@media (prefers-color-scheme: dark) { .demo-tag.real { background: #12325F; color: #DCEBFF; border-color: #3C6BB5; } }
+.byok { margin: 8px 16px; padding: 8px 14px; border: 1px solid #8DB4F0; border-radius: 14px; background: #F1F6FF; color: #17171A; font-size: 14px; line-height: 1.5; }
+.byok summary { cursor: pointer; font-weight: 700; }
+.byok-warn { font-weight: 700; color: #7A2E00; }
+.byok input { width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 16px; border: 1px solid #8DB4F0; border-radius: 10px; }
+.byok-row { display: flex; gap: 8px; margin: 8px 0; }
+.byok-btn { padding: 8px 16px; border-radius: 10px; border: 1px solid #1B63D8; background: #1B63D8; color: #fff; font-weight: 700; }
+.byok-btn:last-child { background: transparent; color: #1B63D8; }
+#byok-status[data-kind="fail"] { color: #A12A00; font-weight: 700; }
+@media (prefers-color-scheme: dark) { .byok { background: #14233D; color: #F1F1F4; border-color: #3C6BB5; } .byok-warn { color: #FFC9A3; } .byok input { background: #0E1626; color: #F1F1F4; } #byok-status[data-kind="fail"] { color: #FFB59C; } }

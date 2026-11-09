@@ -24,6 +24,11 @@
     return dataPromise;
   }
 
+  // 발표자 본인 키 모드(byok.js, 선택). 키가 있을 때만 수행평가 두 기능을 진짜 AI로 부르고, 실패하면 예시로 돌아갑니다.
+  const FAIL_MARK = "진짜 AI 연결 실패, 예시로 보여 드려요.";
+  const REAL_CHECK_MARK = "진짜 AI가 점검한 결과예요.";
+  const byok = () => (window.__byok && window.__byok.hasKey() ? window.__byok : null);
+
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
   const reply = (status, body) => new Response(body === null ? null : JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
   const fail = (status, message) => reply(status, { error: message });
@@ -90,7 +95,7 @@
   // ---------- 수행평가 ----------
   const rubricsKey = "rubrics";
   function splitSentences(text) { return (text.match(/[^.!?。\n]+[.!?。]?/g) || []).map((s) => s.trim()).filter(Boolean); }
-  function checkText(data, rubric, index, text) {
+  function checkText(data, rubric, index, text, failed) {
     const spec = data.rubric.check[index % data.rubric.check.length];
     const el = rubric.elements[index];
     const hits = spec.keywords.filter((k) => text.includes(k));
@@ -98,7 +103,7 @@
     const levels = [...el.levels].sort((a, b) => b.points - a.points);
     const level = (i) => { const l = levels[Math.min(i, levels.length - 1)]; return l ? { points: l.points, criterion: l.criterion } : null; };
     const evidence = splitSentences(text).filter((s) => s.replace(/\s+/g, "").length >= 6 && spec.keywords.some((k) => s.includes(k))).slice(0, 3);
-    const base = { element_index: index, element_name: el.name, notice: "이 결과는 점수가 아니라 참고용 점검입니다. 최종 평가는 선생님이 합니다." };
+    const base = { element_index: index, element_name: el.name, notice: (failed ? FAIL_MARK + " " : "") + "이 결과는 점수가 아니라 참고용 점검입니다. 최종 평가는 선생님이 합니다." };
     if (len < 20) return { ...base, verdict: "확인필요", evidence: [], closest_level: null, gaps: [], hints: spec.hints.slice(0, 1), message: data.rubric.check_messages.short };
     if (hits.length >= 2 && len >= 60 && evidence.length) return { ...base, verdict: "충분", evidence, closest_level: level(0), gaps: [], hints: spec.hints.slice(0, 1), message: data.rubric.check_messages.enough };
     return { ...base, verdict: "부족", evidence, closest_level: level(1), gaps: spec.gaps, hints: spec.hints, message: data.rubric.check_messages.lacking };
@@ -206,8 +211,12 @@
 
     // 수행평가
     if (path === "/api/rubrics/draft" && method === "POST") {
-      await sleep(700);  // 고른 사진은 읽지 않습니다. 어떤 사진이든 같은 예시 초안을 줍니다.
-      return reply(200, { draft: JSON.parse(JSON.stringify(data.rubric.draft)), saved: false, notice: data.rubric.draft_notice });
+      // 키가 있으면 사진을 진짜 AI로 읽어 봅니다. 키가 없거나 실패하면 사진은 읽지 않고 같은 예시 초안을 줍니다.
+      const b = byok();
+      let failed = false;
+      if (b) { try { return reply(200, await b.draft(request.body)); } catch (_) { failed = true; } }
+      await sleep(700);
+      return reply(200, { draft: JSON.parse(JSON.stringify(data.rubric.draft)), saved: false, notice: (failed ? FAIL_MARK + " " : "") + data.rubric.draft_notice });
     }
     if (path === "/api/rubrics" && method === "GET") {
       return reply(200, load(rubricsKey, []).slice().reverse().map((r) => ({ id: r.id, created_at: r.created_at, title: r.title || "", element_count: r.elements.length })));
@@ -233,8 +242,14 @@
         const text = typeof body.text === "string" ? body.text.trim() : "";
         if (!text) return fail(400, "점검할 글을 입력해 주세요.");
         if (text.length > 5000) return fail(400, "글은 5000자 이하로 나누어 올려 주세요.");
+        const b = byok();
+        let failed = false;
+        if (b) {
+          try { return reply(200, { element_index: idx, element_name: rubric.elements[idx].name, ...(await b.check(rubric.elements[idx], text)) }); }
+          catch (_) { failed = true; }
+        }
         await sleep(500);
-        return reply(200, checkText(data, rubric, idx, text));
+        return reply(200, checkText(data, rubric, idx, text, failed));
       }
     }
     return fail(404, "체험판에서 지원하지 않는 기능이에요.");
@@ -261,7 +276,7 @@
     if (url.origin !== location.origin || apiAt < 0) return realFetch(input, init);
     const method = String(options.method || (typeof input !== "string" && input.method) || "GET").toUpperCase();
     // 본문은 JSON일 때만 읽습니다(파일이 든 FormData는 열어 보지 않음).
-    const req = { json: async () => (typeof options.body === "string" ? JSON.parse(options.body) : {}) };
+    const req = { json: async () => (typeof options.body === "string" ? JSON.parse(options.body) : {}), body: options.body };
     try { return await handle(method, url.pathname.slice(apiAt), url.searchParams, req); }
     catch (_) { return fail(500, "체험판에서 문제가 생겼어요. 페이지를 새로고침해 주세요."); }
   };
@@ -273,8 +288,9 @@
     if (el.dataset.demoTagged) return;
     el.dataset.demoTagged = "1";
     const tag = document.createElement("span");
-    tag.className = "demo-tag";
-    tag.textContent = "예시";
+    const real = el.matches(".card.res") && el.textContent.includes(REAL_CHECK_MARK);  // 진짜 AI 결과에는 '진짜 AI', 나머지는 '예시'
+    tag.className = real ? "demo-tag real" : "demo-tag";
+    tag.textContent = real ? "진짜 AI" : "예시";
     if (el.id === "summary") { if (!el.textContent.trim()) { delete el.dataset.demoTagged; return; } el.prepend(tag, document.createElement("br")); }
     else if (el.matches(".card.res")) el.prepend(tag);
     else el.append(tag);

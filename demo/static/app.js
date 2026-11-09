@@ -37,68 +37,33 @@
     check: "M9 2h6v2h3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3zm-1 9.2L9.4 9.8l1.6 1.6 3.6-3.6L16 9.2l-5 5zM8 18h8v-1.6H8z",
     more: "M5 10.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zm7 0a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zm7 0a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z",
   };
-  // 선생님 빨간 색연필 표시: 정답은 번호를 두 바퀴쯤 휘감는 동그라미(끝이 바깥으로 삐져나옴), 오답은 번호를 지나는 길고 시원한 한 획.
+  // 선생님 빨간 색연필 표시: 정답은 한 획으로 쓱 그은 약간 납작한 타원 호(닫히지 않음, 꼬리 없음), 오답은 번호를 지나는 길고 빠른 한 줄.
   // 장식이라 화면 낭독기에서는 읽지 않고(aria-hidden), 정답/오답 글자와 카드 색은 그대로 둡니다.
-  // 획은 점으로 손글씨처럼 흔들어 만들고(같은 seed 면 늘 같은 모양), 굵기는 겹친 3개 층으로 "시작 굵고 끝 가늘게" 보이게 합니다.
-  function rng(seed) {  // mulberry32: 같은 seed 면 같은 난수열
-    let a = (seed * 2654435761) >>> 0;
-    return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  }
-  // 두 바퀴쯤 감는 동그라미의 중심선 점들(상자 한 변 w, 바깥으로 pad 만큼 번짐 허용)
-  function circlePoints(w, pad, rand) {
-    const cx = w / 2 + (rand() - 0.5) * 2, cy = w / 2 + (rand() - 0.5) * 2;
-    const R = w / 2 + pad * 0.55, N = 64, sweep = Math.PI * 4.15, start = -2.3 + (rand() - 0.5) * 0.5;
-    const ph = rand() * 6.28, out = [];
-    for (let i = 0; i <= N; i++) {
-      const u = i / N, th = start - sweep * u;             // 반시계 방향으로 감기
-      let r = R * (0.9 + 0.16 * u + 0.045 * Math.sin(2.1 * th + ph) + 0.03 * Math.sin(5 * th));  // 둘째 바퀴가 조금 더 큼
-      if (u > 0.9) r += R * 0.55 * Math.pow((u - 0.9) / 0.1, 2);                                // 끝이 바깥으로 삐져나옴
-      out.push([cx + r * Math.cos(th) * 1.06, cy + r * Math.sin(th) * 0.94]);
-    }
-    return out;
-  }
-  // 왼쪽 아래 → 오른쪽 위로 번호보다 길게 긋는 한 획
-  function slashPoints(w, pad, rand) {
-    const x0 = -pad * 0.9 + (rand() - 0.5) * 2, y0 = w + pad * 0.95 + (rand() - 0.5) * 2;
-    const x1 = w + pad * 0.95 + (rand() - 0.5) * 2, y1 = -pad * 0.95 + (rand() - 0.5) * 2, N = 30, bow = (rand() - 0.5) * 4;
-    const out = [];
-    for (let i = 0; i <= N; i++) {
-      const u = i / N, wob = Math.sin(u * 9 + rand()) * 0.5;
-      out.push([x0 + (x1 - x0) * u + bow * Math.sin(u * Math.PI) * 0.6 + wob, y0 + (y1 - y0) * u - bow * Math.sin(u * Math.PI) * 0.6 + wob * 0.6]);
-    }
-    return out;
-  }
-  function smoothPath(pts) {  // 점들을 이어 부드러운 곡선(2차 베지어) 경로로
-    let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
-    for (let i = 1; i < pts.length - 1; i++) {
-      const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
-      d += `Q${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
-    }
-    const last = pts[pts.length - 1];
-    return d + `L${last[0].toFixed(1)} ${last[1].toFixed(1)}`;
-  }
-  // kind: "ok"(동그라미) | "bad"(사선). w: 표시할 번호 상자의 한 변(px), pad: 상자 밖으로 번지는 여유(px)
-  function penMark(kind, w, pad, seed) {
-    const rand = rng(seed + 1);
+  // 모양(점)은 penshape.js 의 순수 함수가 만들고, 여기서는 굵기가 다른 3개 층으로 나눠 "시작 굵고 끝 가늘게"(펜 압력) 그립니다.
+  // kind: "ok"(동그라미) | "bad"(사선). w: 번호 상자 한 변(px), pad: 상자 밖 여유(px), size: 동그라미 긴 지름(px),
+  // order: 문제 순서(0부터, 0.1초 간격으로 차례로 그어집니다), lag: 같은 문제 안에서 늦출 초
+  function penMark(kind, w, pad, seed, size, order, lag) {
     const svg = document.createElementNS(SVG_NS, "svg");
     svg.setAttribute("viewBox", `${-pad} ${-pad} ${w + pad * 2} ${w + pad * 2}`);
     svg.setAttribute("class", "pen " + (kind === "ok" ? "pen-ok" : "pen-bad"));
     svg.setAttribute("aria-hidden", "true");
     svg.setAttribute("focusable", "false");
+    const base = (order || 0) * 0.1 + (lag || 0);
+    svg.style.setProperty("--pop-delay", base + "s");
     const g = document.createElementNS(SVG_NS, "g");
     g.setAttribute("filter", "url(#redpen-rough)");  // 색연필 결·거친 가장자리(index.html 에 정의)
-    const pts = kind === "ok" ? circlePoints(w, pad, rand) : slashPoints(w, pad, rand);
-    // [시작, 끝, 굵기(px), 그리기 시작 지연(초), 그리는 시간(초)] — 굵은 층에서 가는 층으로 이어집니다.
+    const pts = kind === "ok" ? window.PenShape.circleArc(w / 2, w / 2, size, seed).points : window.PenShape.slashLine(w, pad, seed);
+    // [시작, 끝, 굵기(px), 그리기 시작 지연(초), 그리는 시간(초)] — 굵은 층에서 가는 층으로 이어집니다(동그라미 약 0.35초, 사선 약 0.25초).
     const layers = kind === "ok"
-      ? [[0, 0.56, 3.8, 0, 0.36], [0.46, 0.88, 3.2, 0.3, 0.3], [0.78, 1, 2.3, 0.52, 0.14]]
-      : [[0, 0.5, 5, 0, 0.26], [0.42, 0.8, 4, 0.22, 0.2], [0.72, 1, 2.6, 0.4, 0.16]];
+      ? [[0, 0.5, 4, 0, 0.17], [0.42, 0.82, 3.2, 0.13, 0.15], [0.74, 1, 2.2, 0.26, 0.1]]
+      : [[0, 0.5, 5, 0, 0.13], [0.42, 0.8, 4, 0.1, 0.11], [0.72, 1, 2.6, 0.19, 0.08]];
     for (const [from, to, width, delay, dur] of layers) {
       const a = Math.floor(from * (pts.length - 1)), b = Math.max(a + 2, Math.ceil(to * (pts.length - 1)) + 1);
       const path = document.createElementNS(SVG_NS, "path");
-      path.setAttribute("d", smoothPath(pts.slice(a, b)));
+      path.setAttribute("d", window.PenShape.smoothPath(pts.slice(a, b)));
       path.setAttribute("pathLength", "1");  // 긋는 애니메이션(stroke-dashoffset)을 길이와 상관없이 쓰기 위해
       path.style.strokeWidth = String(width);
-      path.style.setProperty("--delay", delay + "s");
+      path.style.setProperty("--delay", (base + delay) + "s");
       path.style.setProperty("--dur", dur + "s");
       g.appendChild(path);
     }
@@ -228,8 +193,29 @@
     ["more", "더보기", "more"],
   ];
 
-  function go(tab) {
+  // 화면 이동 기록: go()로 탭을 옮길 때 직전 위치(탭, 공부 안 섹션, 문제 모드)를 쌓고, 앱바 '<'는 그 직전으로 돌아갑니다.
+  // 하단 탭을 눌러 옮기면 기록을 비웁니다(새로 시작). 기록이 비어 있으면 홈으로 갑니다.
+  const navStack = [];
+  let navHere = { tab: "home", study: "허브", quizMode: "새 문제" };  // 가장 최근에 그린 위치
+  function go(tab, fresh) {
+    if (fresh) navStack.length = 0;
+    else if (tab !== navHere.tab) { navStack.push(navHere); if (navStack.length > 20) navStack.shift(); }
     state.tab = tab;
+    render();
+    window.scrollTo(0, 0);
+  }
+  // 같은 탭 안에서 한 단계 들어갈 때(허브→자료 한 개, 출처 확인→자료 등) 지금 위치를 쌓고 바꿉니다.
+  function enter(change) {
+    navStack.push(navHere); if (navStack.length > 20) navStack.shift();
+    change(); render(); window.scrollTo(0, 0);
+  }
+  function goBack() {
+    const prev = navStack.pop();
+    if (!prev) {
+      if (state.tab === "study" && state.study !== "허브") { state.study = "허브"; render(); return; }  // 하단 탭으로 바로 들어온 공부 안쪽 화면
+      go("home", true); return;
+    }
+    state.tab = prev.tab; state.study = prev.study; state.quizMode = prev.quizMode;
     render();
     window.scrollTo(0, 0);
   }
@@ -238,7 +224,7 @@
     const bar = document.getElementById("tabbar");
     bar.textContent = "";
     for (const [id, label, ic] of TABS) {
-      bar.appendChild(h("button", { class: "tab", type: "button", "aria-current": state.tab === id ? "page" : false, onclick: () => { if (id === "study" && state.tab === "study") state.study = "허브"; go(id); }  /* 이미 공부 탭이면 첫 화면(허브)으로 */  }, icon(ic, true), label));
+      bar.appendChild(h("button", { class: "tab", type: "button", "aria-current": state.tab === id ? "page" : false, onclick: () => { if (id === "study" && state.tab === "study") state.study = "허브"; go(id, true); }  /* 이미 공부 탭이면 첫 화면(허브)으로 */  }, icon(ic, true), label));
     }
   }
 
@@ -248,6 +234,7 @@
     root.textContent = "";
     const screens = { home: renderHome, study: renderStudy, quiz: renderQuiz, rubric: renderRubric, more: renderMore };
     root.appendChild(h("section", { class: "screen active" }, screens[state.tab]()));
+    navHere = { tab: state.tab, study: state.study, quizMode: state.quizMode };
   }
 
   // ---------- 공통 조각 ----------
@@ -376,7 +363,7 @@
     const wrap = h("div");
     if (state.study === "허브") { wrap.append(...[].concat(studyHub())); return wrap; }
     wrap.append(
-      appbar("공부", { back: () => { state.study = "허브"; render(); }, backLabel: "공부 첫 화면으로", right: () => { state.study = "자료"; render(); }, rightLabel: "자료 관리", rightIcon: "doc" }),
+      appbar("공부", { back: goBack, backLabel: "이전 화면으로", right: () => { state.study = "자료"; render(); }, rightLabel: "자료 관리", rightIcon: "doc" }),
       chips(["자료", "요약", "질문", "기록"], state.study, (c) => { state.study = c; render(); }, "공부 메뉴"));
     const body = { 자료: studyMaterials, 요약: studySummary, 질문: studyAsk, 기록: studyHistory }[state.study];
     wrap.append(...[].concat(body()));
@@ -389,22 +376,22 @@
       h("span", { class: `badge-ico ${color}` }, icon(ic)), h("span", { text: name }));
     const rows = state.materials.length
       ? h("ul", { class: "rows", id: "hub-materials" }, state.materials.map((m) => h("li", {},
-          h("button", { class: "rowitem", type: "button", "aria-pressed": m.id === state.selId ? "true" : "false", onclick: () => { state.selId = m.id; store("sel", m.id); refreshOpenWrong(); state.study = "질문"; render(); } },
+          h("button", { class: "rowitem", type: "button", "aria-pressed": m.id === state.selId ? "true" : "false", onclick: () => enter(() => { state.selId = m.id; store("sel", m.id); refreshOpenWrong(); state.study = "질문"; }) },
             h("span", { class: "grow" }, h("span", { class: "nm", text: m.filename }), h("span", { class: "meta", text: `${m.page_count}쪽 · ${m.has_summary ? "요약 있음" : "요약 없음"}${m.id === state.selId ? " · 선택됨" : ""}` })),
             h("span", { class: "go-ico" }, icon("chev"))))))
-      : empty("doc", "아직 올린 자료가 없어요", "PDF나 텍스트 파일을 올리면 여기에 모여요.", h("button", { class: "btn", type: "button", onclick: () => { state.study = "자료"; render(); } }, "자료 올리기"));
+      : empty("doc", "아직 올린 자료가 없어요", "PDF나 텍스트 파일을 올리면 여기에 모여요.", h("button", { class: "btn", type: "button", onclick: () => enter(() => { state.study = "자료"; }) }, "자료 올리기"));
     return [
       h("h1", { class: "title", text: "공부" }),
       h("p", { class: "label", text: "공부 도구" }),
       h("div", { class: "hub" },
-        tile("chat", "blue", "질문하기", () => { state.study = sel() ? "질문" : "자료"; render(); }, "tile-ask"),
-        tile("doc", "blue", "요약", () => { state.study = sel() ? "요약" : "자료"; render(); }, "tile-summary"),
+        tile("chat", "blue", "질문하기", () => enter(() => { state.study = sel() ? "질문" : "자료"; }), "tile-ask"),
+        tile("doc", "blue", "요약", () => enter(() => { state.study = sel() ? "요약" : "자료"; }), "tile-summary"),
         tile("quiz", "green", "문제 풀기", () => { state.quizMode = "새 문제"; go("quiz"); }, "tile-quiz"),
         tile("note", "green", "오답 노트", () => { state.quizMode = "오답"; go("quiz"); }, "tile-wrong"),
         tile("check", "amber", "수행평가 점검", () => go("rubric"), "tile-rubric")),
       h("p", { class: "label", text: "내 자료" }),
       rows,
-      h("div", { class: "row" }, h("button", { class: "sm-pill", type: "button", onclick: () => { state.study = "자료"; render(); } }, "자료 올리기·관리")),
+      h("div", { class: "row" }, h("button", { class: "sm-pill", type: "button", onclick: () => enter(() => { state.study = "자료"; }) }, "자료 올리기·관리")),
     ];
   }
 
@@ -608,7 +595,7 @@
         h("span", { class: "chipline", text: docKind(m.filename) })),
       h("div", { class: "paper" }, excerpt, h("div", { class: "pageno", text: `${s.page}쪽` })),
       h("p", { class: "info" }, icon("info"), h("span", { text: "일부 발췌본이에요. 질문과 맞는 줄은 파랗게 표시했어요. 정확한 내용은 원문을 확인하세요." })),
-      h("button", { class: "btn big block", type: "button", id: "source-back-btn", onclick: () => { close(); state.selId = m.id; store("sel", m.id); state.study = "자료"; go("study"); } },
+      h("button", { class: "btn big block", type: "button", id: "source-back-btn", onclick: () => { close(); enter(() => { state.selId = m.id; store("sel", m.id); state.study = "자료"; state.tab = "study"; }); } },
         h("span", { style: "display:flex;align-items:center;gap:8px" }, icon("book"), "공부 탭에서 이 자료 보기"), icon("chev"))));
     sheet.classList.remove("hidden");
     document.body.style.overflow = "hidden";
@@ -665,7 +652,7 @@
   // ---------- 문제·오답 ----------
   function renderQuiz() {
     const wrap = h("div");
-    wrap.append(appbar("문제·오답", { back: () => go("home"), backLabel: "홈으로" }));
+    wrap.append(appbar("문제·오답", { back: goBack, backLabel: "이전 화면으로" }));
     const m = sel();
     if (!m) { wrap.append(needMaterial("문제 풀기")); return wrap; }
     wrap.append(seg(["새 문제", "오답"], state.quizMode, (c) => { state.quizMode = c; render(); }, "문제 메뉴"));
@@ -725,7 +712,7 @@
     data.questions.forEach((q, i) => {
       const r = done ? qz.result.results[i] : null;
       const right = !!r && r.selected === r.answer;
-      const mark = r ? penMark(right ? "ok" : "bad", 36, 14, i * 7 + 3) : null;  // 채점 뒤에만 빨간펜 표시
+      const mark = r ? penMark(right ? "ok" : "bad", 36, 14, i * 7 + 3, 54, i, 0) : null;  // 채점 뒤에만 빨간펜 표시
       const card = h("div", { class: "card q" }, h("h3", { class: "qhead" },
         h("span", { class: "qno" }, h("span", { class: "qdigit", text: String(i + 1) }), mark),
         h("span", { class: "qtext", text: q.question })));
@@ -735,7 +722,7 @@
         if (r) { if (n === r.answer) cls += " right"; else if (n === r.selected) cls += " wrong"; }
         card.appendChild(h("button", { class: cls, type: "button", disabled: done || qz.grading, "aria-pressed": qz.picked[i] === n ? "true" : "false",
           onclick: () => { qz.picked[i] = n; render(); } },
-          h("span", { class: "num" }, h("span", { class: "numdigit", text: String(n) }), right && n === r.answer ? penMark("ok", 24, 9, i * 7 + n) : null), h("span", { text: c })));
+          h("span", { class: "num" }, h("span", { class: "numdigit", text: String(n) }), right && n === r.answer ? penMark("ok", 24, 11, i * 7 + n, 44, i, 0.06) : null), h("span", { text: c })));
       });
       if (r) card.appendChild(h("p", { class: "explain", text: `${r.selected === r.answer ? "정답" : (r.selected ? `정답은 ${r.answer}번` : `안 풀었어요. 정답은 ${r.answer}번`)} · ${r.explanation} (${r.page}쪽)` }));
       wrap.append(card);
@@ -825,7 +812,9 @@
 
   function renderRubric() {
     const wrap = h("div");
-    wrap.append(appbar("수행평가", { back: () => go("home"), backLabel: "홈으로" }));
+    // 앱바 '<'가 이 화면의 하나뿐인 뒤로가기입니다: 편집·점검 화면에서는 기준표 목록으로, 목록에서는 이전 화면으로.
+    const inner = rub.mode === "edit" || rub.mode === "check";
+    wrap.append(appbar("수행평가", { back: inner ? () => { if (rub.mode === "edit") rub.token++; rub.mode = "list"; render(); } : goBack, backLabel: inner ? "기준표 목록으로" : "이전 화면으로" }));
     if (rub.mode === "edit") wrap.append(...[].concat(rubricEditor()));
     else if (rub.mode === "check") wrap.append(...[].concat(rubricCheck()));
     else wrap.append(...[].concat(rubricList()));
@@ -937,7 +926,6 @@
     title.value = d.title || "";
     title.addEventListener("input", () => { d.title = title.value; });
     wrap.append(
-      h("button", { class: "btn secondary small", type: "button", onclick: () => { rub.token++; rub.mode = "list"; render(); } }, icon("back"), "돌아가기"),
       h("p", { class: "notice", text: rub.draftNotice || "AI가 읽은 내용이 아니라면 직접 채워 주세요." }),
       h("label", { class: "field", for: "rubric-title", text: "기준표 이름" }), title);
     d.elements.forEach((el, i) => wrap.append(elementEditor(d, el, i)));
@@ -989,7 +977,6 @@
     const texts = rub.texts[r.id] || (rub.texts[r.id] = {});
     const wrap = h("div");
     wrap.append(
-      h("button", { class: "btn secondary small", type: "button", onclick: () => { rub.mode = "list"; render(); } }, icon("back"), "기준표 목록"),
       h("h2", { class: "title", style: "font-size:22px;margin-top:16px", text: r.title || "수행평가 기준표" }),
       seg(["점검", "기준표"], rub.view, (v) => { rub.view = v; render(); }, "수행평가 보기"),
       h("p", { class: "count", text: rub.view === "점검"
@@ -1068,7 +1055,7 @@
        "올린 자료는 지우기 전까지 이 기기에 남아요. 질문 기록은 {days}일 뒤 자동으로 지워져요.",
        "사진·스캔본은 아직 읽지 못해요(글자가 있는 PDF만)."].map((t) => h("li", { [KEEP_ATTR]: t, text: keepText(t) })));
     return [
-      appbar("더보기", { back: () => go("home"), backLabel: "홈으로" }),
+      appbar("더보기", { back: goBack, backLabel: "이전 화면으로" }),
       h("div", { class: "card" },
         h("div", { class: "profile" },
           h("span", { class: "avatar-lg", "aria-hidden": "true", text: name ? name.slice(0, 1) : "나" }),
