@@ -37,6 +37,29 @@
     check: "M9 2h6v2h3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3zm-1 9.2L9.4 9.8l1.6 1.6 3.6-3.6L16 9.2l-5 5zM8 18h8v-1.6H8z",
     more: "M5 10.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zm7 0a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zm7 0a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z",
   };
+  // 선생님 빨간펜 표시: 정답은 번호를 두르는 찌그러진 동그라미 한 획, 오답은 번호 위로 긋는 빠른 사선 두 줄.
+  // 장식이라 화면 낭독기에서는 읽지 않고(aria-hidden), 정답/오답 글자와 카드 색은 그대로 둡니다.
+  function penMark(correct) {
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 36 36");
+    svg.setAttribute("class", "pen " + (correct ? "pen-ok" : "pen-bad"));
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    const g = document.createElementNS(SVG_NS, "g");
+    g.setAttribute("filter", "url(#redpen-rough)");  // 살짝 번진 펜 질감(index.html 에 정의)
+    const strokes = correct
+      ? ["M21 3.6C11 2.6 3.6 10.6 4.2 20C4.8 29.4 14 34 23.4 32.2C31.6 30.6 34.4 21 31.4 13C28.8 6.2 20.6 2.8 12.6 5.4"]
+      : ["M6.4 31C14.6 22.4 22.6 14.2 30.2 5.2", "M12.8 33.4C21 24.6 27.2 18 33.4 11.2"];
+    for (const d of strokes) {
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", d);
+      path.setAttribute("pathLength", "1");  // 긋는 애니메이션(stroke-dashoffset)을 길이와 상관없이 쓰기 위해
+      g.appendChild(path);
+    }
+    svg.appendChild(g);
+    return svg;
+  }
+
   function icon(name, filled) {
     const svg = document.createElementNS(SVG_NS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
@@ -655,7 +678,10 @@
     }
     data.questions.forEach((q, i) => {
       const r = done ? qz.result.results[i] : null;
-      const card = h("div", { class: "card q" }, h("h3", { text: `${i + 1}. ${q.question}` }));
+      const mark = r ? penMark(r.selected === r.answer) : null;  // 채점 뒤에만 빨간펜 표시
+      const card = h("div", { class: "card q" }, h("h3", { class: "qhead" },
+        h("span", { class: "qno" }, h("span", { class: "qdigit", text: String(i + 1) }), mark),
+        h("span", { class: "qtext", text: q.question })));
       q.choices.forEach((c, k) => {
         const n = k + 1;
         let cls = "choice";
