@@ -1,6 +1,6 @@
 {
-  "name": "공부 도우미",
-  "short_name": "공부 도우미",
+  "name": "수스로",
+  "short_name": "수스로",
   "description": "내 수업 자료로 요약하고, 묻고, 문제를 풉니다.",
   "start_url": "../",
   "scope": "../",

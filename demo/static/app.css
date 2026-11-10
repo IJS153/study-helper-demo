@@ -213,7 +213,9 @@ table.grid th, table.grid td { border: 1px solid var(--line); padding: 6px; vert
   #app { max-width: 760px; }
   .tabbar { left: 50%; right: auto; transform: translateX(-50%); width: 760px; border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0; }
 }
-@media (max-width: 380px) { .tab { font-size: 11px; } .title { font-size: 24px; } .duo { grid-template-columns: 1fr; } }
+.brand { font-size: 52px; line-height: 1.1; letter-spacing: -.03em; margin: 20px 0 6px; color: var(--accent-ink); }
+.brand-sub { font-size: 15px; margin-bottom: 20px; }
+@media (max-width: 380px) { .tab { font-size: 11px; } .title { font-size: 24px; } .brand { font-size: 44px; } .duo { grid-template-columns: 1fr; } }
 
 /* ===== 디자인 2차: 중립 배경, 무테두리 카드, 허브·행 목록·분할 버튼 ===== */
 .title { font-weight: 700; }

@@ -274,12 +274,12 @@
           h("span", { class: "go" }, "자료 올리러 가기", icon("chev")));
     return [
       h("div", { class: "topline" },
-        h("span", { class: "logo-chip" }, h("span", { class: "dot-logo" }, icon("book")), "공부 도우미"),
+        h("span", { class: "logo-chip" }, h("span", { class: "dot-logo" }, icon("book")), "수스로"),
         h("span", { class: "stats-chips" },
           h("span", { class: "pill-stat", text: `자료 ${state.materials.length}개` }),
           h("span", { class: "pill-stat", text: `오답 ${openCount}개` }))),
-      h("h1", { class: "title", text: nick ? `${nick}님, 오늘도 한 쪽씩` : "오늘도 한 쪽씩" }),
-      h("p", { class: "subtitle", text: "내 수업 자료로 요약하고, 묻고, 문제를 풀어요." }),
+      h("h1", { class: "title brand", text: "수스로" }),
+      h("p", { class: "subtitle brand-sub", text: nick ? `수행평가를 스스로 준비하자 · ${nick}님, 오늘도 한 쪽씩` : "수행평가를 스스로 준비하자" }),
       nickPrompt(),
       hero,
       h("div", { class: "softpills" },
